@@ -17,8 +17,10 @@
  * those modifications are Copyright (c) 2016 SanDisk Corp.
  */
 
+#ifdef __linux__
 #include <linux/major.h>
 #include <linux/mmc/ioctl.h>
+#endif
 
 /* From kernel linux/mmc/mmc.h */
 #define MMC_GO_IDLE_STATE         0   /* bc                          */
