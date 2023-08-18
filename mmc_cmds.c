@@ -20,6 +20,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/endian.h>
+#include <sys/mount.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -28,7 +30,12 @@
 #include <errno.h>
 #include <stdint.h>
 #include <assert.h>
-#include <linux/fs.h> /* for BLKGETSIZE */
+#ifdef __linux__
+#include <linux/fs.h>
+#elif defined(__NuttX__)
+#include <nuttx/fs/fs.h> /* for BLKGETSIZE */
+#include <nuttx/mmcsd.h>
+#endif
 
 #include "mmc.h"
 #include "mmc_cmds.h"
@@ -371,7 +378,7 @@ static char *prot_desc[] = {
 static void print_wp_status(__u32 wp_sizeblks, __u32 start_group,
 			__u32 end_group, int rptype)
 {
-	printf("Write Protect Groups %d-%d (Blocks %d-%d), ",
+	printf("Write Protect Groups %" PRIu32 "-%" PRIu32 " (Blocks %" PRIu32 "-%" PRIu32 "), ",
 		start_group, end_group,
 		start_group * wp_sizeblks, ((end_group + 1) * wp_sizeblks) - 1);
 	printf("%s Write Protection\n", prot_desc[rptype]);
@@ -416,7 +423,7 @@ int do_writeprotect_user_get(int nargs, char **argv)
 	ret = get_wp_group_size_in_blks(ext_csd, &wp_sizeblks);
 	if (ret)
 		exit(1);
-	printf("Write Protect Group size in blocks/bytes: %d/%d\n",
+	printf("Write Protect Group size in blocks/bytes: %" PRIu32 "/%" PRIu32 "\n",
 		wp_sizeblks, wp_sizeblks * 512);
 	dev_sizeblks = get_size_in_blks(fd);
 	cnt = dev_sizeblks / wp_sizeblks;
@@ -498,7 +505,7 @@ int do_writeprotect_user_set(int nargs, char **argv)
 	blk_cnt = strtol(argv[3], NULL, 0);
 	if ((blk_start % wp_blks) || (blk_cnt % wp_blks)) {
 		fprintf(stderr, "<start block> and <blocks> must be a ");
-		fprintf(stderr, "multiple of the Write Protect Group (%d)\n",
+		fprintf(stderr, "multiple of the Write Protect Group (%" PRIu32 ")\n",
 			wp_blks);
 		exit(1);
 	}
@@ -878,7 +885,7 @@ int do_status_get(int nargs, char **argv)
 		exit(1);
 	}
 
-	printf("SEND_STATUS response: 0x%08x\n", response);
+	printf("SEND_STATUS response: 0x%08" PRIx32 "\n", response);
 
 	if (response & R1_OUT_OF_RANGE)
 		printf("ERROR: ADDRESS_OUT_OF_RANGE\n");
@@ -1066,7 +1073,7 @@ int check_enhanced_area_total_limit(const char * const device, int fd)
 	gp4_part_sz = 512l * regl * erase_sz * wp_sz;
 	if (ext_csd[EXT_CSD_PARTITIONS_ATTRIBUTE] & EXT_CSD_ENH_4) {
 		enh_area_sz += gp4_part_sz;
-		printf("Enhanced GP4 Partition Size [GP_SIZE_MULT_4]: 0x%06x\n", regl);
+		printf("Enhanced GP4 Partition Size [GP_SIZE_MULT_4]: 0x%06" PRIx32 "\n", regl);
 		printf(" i.e. %lu KiB\n", gp4_part_sz);
 	}
 
@@ -1076,7 +1083,7 @@ int check_enhanced_area_total_limit(const char * const device, int fd)
 	gp3_part_sz = 512l * regl * erase_sz * wp_sz;
 	if (ext_csd[EXT_CSD_PARTITIONS_ATTRIBUTE] & EXT_CSD_ENH_3) {
 		enh_area_sz += gp3_part_sz;
-		printf("Enhanced GP3 Partition Size [GP_SIZE_MULT_3]: 0x%06x\n", regl);
+		printf("Enhanced GP3 Partition Size [GP_SIZE_MULT_3]: 0x%06" PRIx32 "\n", regl);
 		printf(" i.e. %lu KiB\n", gp3_part_sz);
 	}
 
@@ -1086,7 +1093,7 @@ int check_enhanced_area_total_limit(const char * const device, int fd)
 	gp2_part_sz = 512l * regl * erase_sz * wp_sz;
 	if (ext_csd[EXT_CSD_PARTITIONS_ATTRIBUTE] & EXT_CSD_ENH_2) {
 		enh_area_sz += gp2_part_sz;
-		printf("Enhanced GP2 Partition Size [GP_SIZE_MULT_2]: 0x%06x\n", regl);
+		printf("Enhanced GP2 Partition Size [GP_SIZE_MULT_2]: 0x%06" PRIx32 "\n", regl);
 		printf(" i.e. %lu KiB\n", gp2_part_sz);
 	}
 
@@ -1096,7 +1103,7 @@ int check_enhanced_area_total_limit(const char * const device, int fd)
 	gp1_part_sz = 512l * regl * erase_sz * wp_sz;
 	if (ext_csd[EXT_CSD_PARTITIONS_ATTRIBUTE] & EXT_CSD_ENH_1) {
 		enh_area_sz += gp1_part_sz;
-		printf("Enhanced GP1 Partition Size [GP_SIZE_MULT_1]: 0x%06x\n", regl);
+		printf("Enhanced GP1 Partition Size [GP_SIZE_MULT_1]: 0x%06" PRIx32 "\n", regl);
 		printf(" i.e. %lu KiB\n", gp1_part_sz);
 	}
 
@@ -1106,7 +1113,7 @@ int check_enhanced_area_total_limit(const char * const device, int fd)
 	user_area_sz = 512l * regl * erase_sz * wp_sz;
 	if (ext_csd[EXT_CSD_PARTITIONS_ATTRIBUTE] & EXT_CSD_ENH_USR) {
 		enh_area_sz += user_area_sz;
-		printf("Enhanced User Data Area Size [ENH_SIZE_MULT]: 0x%06x\n", regl);
+		printf("Enhanced User Data Area Size [ENH_SIZE_MULT]: 0x%06" PRIx32 "\n", regl);
 		printf(" i.e. %lu KiB\n", user_area_sz);
 	}
 
@@ -1114,7 +1121,7 @@ int check_enhanced_area_total_limit(const char * const device, int fd)
 		(ext_csd[EXT_CSD_MAX_ENH_SIZE_MULT_1] << 8) |
 		ext_csd[EXT_CSD_MAX_ENH_SIZE_MULT_0];
 	max_enh_area_sz = 512l * regl * erase_sz * wp_sz;
-	printf("Max Enhanced Area Size [MAX_ENH_SIZE_MULT]: 0x%06x\n", regl);
+	printf("Max Enhanced Area Size [MAX_ENH_SIZE_MULT]: 0x%06" PRIx32 "\n", regl);
 	printf(" i.e. %lu KiB\n", max_enh_area_sz);
 	if (enh_area_sz > max_enh_area_sz) {
 		fprintf(stderr,
@@ -1827,7 +1834,7 @@ int do_read_extcsd(int nargs, char **argv)
 			(ext_csd[EXT_CSD_MAX_ENH_SIZE_MULT_1] << 8) |
 			ext_csd[EXT_CSD_MAX_ENH_SIZE_MULT_0];
 
-		printf("Max Enhanced Area Size [MAX_ENH_SIZE_MULT]: 0x%06x\n",
+		printf("Max Enhanced Area Size [MAX_ENH_SIZE_MULT]: 0x%06" PRIx32 "\n",
 			   regl);
 		unsigned int wp_sz = get_hc_wp_grp_size(ext_csd);
 		unsigned int erase_sz = get_hc_erase_grp_size(ext_csd);
@@ -1858,7 +1865,7 @@ int do_read_extcsd(int nargs, char **argv)
 			(ext_csd[EXT_CSD_ENH_SIZE_MULT_1] << 8) |
 			ext_csd[EXT_CSD_ENH_SIZE_MULT_0];
 		printf("Enhanced User Data Area Size"
-			" [ENH_SIZE_MULT]: 0x%06x\n", regl);
+			" [ENH_SIZE_MULT]: 0x%06" PRIx32 "\n", regl);
 		printf(" i.e. %lu KiB\n", 512l * regl *
 		       get_hc_erase_grp_size(ext_csd) *
 		       get_hc_wp_grp_size(ext_csd));
@@ -1868,7 +1875,7 @@ int do_read_extcsd(int nargs, char **argv)
 			(ext_csd[EXT_CSD_ENH_START_ADDR_1] << 8) |
 			ext_csd[EXT_CSD_ENH_START_ADDR_0];
 		printf("Enhanced User Data Start Address"
-			" [ENH_START_ADDR]: 0x%08x\n", regl);
+			" [ENH_START_ADDR]: 0x%08" PRIx32 "\n", regl);
 		printf(" i.e. %llu bytes offset\n", (is_blockaddresed(ext_csd) ?
 				512ll : 1ll) * regl);
 
@@ -2072,6 +2079,7 @@ int do_sanitize(int nargs, char **argv)
 
 #define RPMB_MULTI_CMD_MAX_CMDS 3
 
+#ifdef __linux__
 enum rpmb_op_type {
 	MMC_RPMB_WRITE_KEY = 0x01,
 	MMC_RPMB_READ_CNT  = 0x02,
@@ -2093,6 +2101,7 @@ struct rpmb_frame {
 	u_int16_t result;
 	u_int16_t req_resp;
 };
+#endif
 
 static inline void set_single_cmd(struct mmc_ioc_cmd *ioc, __u32 opcode,
 				  int write_flag, unsigned int blocks,
@@ -2703,12 +2712,12 @@ static int erase(int dev_fd, __u32 argin, __u32 start, __u32 end)
 
 	/* Does not work for SPI cards */
 	if (multi_cmd->cmds[1].response[0] & R1_ERASE_PARAM) {
-		fprintf(stderr, "Erase start response: 0x%08x\n",
+		fprintf(stderr, "Erase start response: 0x%08" PRIx32 "\n",
 				multi_cmd->cmds[0].response[0]);
 		ret = -EIO;
 	}
 	if (multi_cmd->cmds[2].response[0] & R1_ERASE_SEQ_ERROR) {
-		fprintf(stderr, "Erase response: 0x%08x\n",
+		fprintf(stderr, "Erase response: 0x%08" PRIx32 "\n",
 				multi_cmd->cmds[2].response[0]);
 		ret = -EIO;
 	}
@@ -2740,7 +2749,7 @@ int do_erase(int nargs, char **argv)
 		end = strtol(argv[3], NULL, 10);
 
 	if (end < start) {
-		fprintf(stderr, "erase start [0x%08x] > erase end [0x%08x]\n",
+		fprintf(stderr, "erase start [0x%08" PRIx32 "] > erase end [0x%08" PRIx32 "]\n",
 			start, end);
 		exit(1);
 	}
@@ -2794,7 +2803,7 @@ int do_erase(int nargs, char **argv)
 		}
 
 	}
-	printf("Executing %s from 0x%08x to 0x%08x\n", print_str, start, end);
+	printf("Executing %s from 0x%08" PRIx32 " to 0x%08" PRIx32 "\n", print_str, start, end);
 
 	ret = erase(dev_fd, arg, start, end);
 out:
